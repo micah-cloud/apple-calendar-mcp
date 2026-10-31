@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "apple-calendar-mcp",
+  "main": "src/worker.ts",
+  "workers_dev": true,
+  "preview_urls": false,
+  "keep_vars": true,
+  "compatibility_date": "2026-08-27",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "vars": {
+    "CALENDAR_TIME_ZONE": "UTC"
+  },
+  "secrets": {
+    "required": ["ICLOUD_USERNAME", "ICLOUD_APP_PASSWORD", "APPROVAL_PASSWORD"]
+  },
+  "kv_namespaces": [{ "binding": "OAUTH_KV","id": "841d9e03e3d74b35a6460ba772fe114c" }]
+}

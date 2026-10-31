@@ -1,0 +1,4 @@
+# Keeps dependency installs reproducible and prevents unreviewed lifecycle scripts.
+[install]
+exact = true
+frozenLockfile = false

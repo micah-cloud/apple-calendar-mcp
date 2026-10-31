@@ -1,0 +1,55 @@
+{
+  "name": "apple-calendar-mcp",
+  "version": "0.3.1",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.14",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "cloudflare:check": "wrangler deploy --dry-run --outdir dist",
+    "cloudflare:dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "cloudflare": {
+    "bindings": {
+      "OAUTH_KV": {
+        "description": "Stores OAuth client registrations, grants, and tokens. Create a new namespace for this deployment. It does not store calendar events."
+      },
+      "ICLOUD_USERNAME": {
+        "description": "Full email address used for the Apple Account and iCloud Calendar."
+      },
+      "ICLOUD_APP_PASSWORD": {
+        "description": "App-specific password created at https://account.apple.com/. See https://support.apple.com/102654."
+      },
+      "APPROVAL_PASSWORD": {
+        "description": "A separate password that protects new MCP client approvals. This field is required for the default setup. Do not reuse an Apple password."
+      },
+      "CALENDAR_TIME_ZONE": {
+        "description": "Default IANA time zone for calendars without one, such as `America/New_York`. Cloudflare cannot detect it automatically."
+      }
+    }
+  },
+  "dependencies": {
+    "@cloudflare/workers-oauth-provider": "0.10.3",
+    "@modelcontextprotocol/server": "2.3.1",
+    "agents": "0.21.0",
+    "ical.js": "2.2.1",
+    "timezones-ical-library": "2.3.0",
+    "tsdav": "2.3.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.1.0",
+    "@cloudflare/workers-types": "5.20260826.1",
+    "@modelcontextprotocol/client": "2.3.1",
+    "@msw/cloudflare": "0.0.1",
+    "msw": "2.14.0",
+    "typescript": "5.9.2",
+    "vitest": "4.1.11",
+    "wrangler": "4.126.0"
+  },
+  "overrides": {
+    "@modelcontextprotocol/sdk": "1.32.1"
+  }
+}
