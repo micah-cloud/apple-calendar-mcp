@@ -185,7 +185,30 @@ async function fetchEventsForCalendar(
     username,
     defaultTimeZone,
     originalData: originalsByPath.get(new URL(object.url).pathname),
-  }));
+  })).filter((event) => eventOverlapsRange(event, range, defaultTimeZone));
+}
+
+// CalDAV may return a whole recurring object, including instances outside its requested window.
+// Filter before paging or computing availability. All-day values are local dates, not UTC midnights.
+export function eventOverlapsRange(event: CalendarEvent, range: { start: string; end: string }, timeZone: string): boolean {
+  if (event.allDay) {
+    const local = (value: string) => {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone, year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+      }).formatToParts(new Date(value));
+      const part = (name: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === name)?.value ?? "";
+      return { date: `${part("year")}-${part("month")}-${part("day")}`, midnight: part("hour") === "00" && part("minute") === "00" && part("second") === "00" && new Date(value).getUTCMilliseconds() === 0 };
+    };
+    const start = local(range.start);
+    const end = local(range.end);
+    return event.end > start.date && (event.start < end.date || (event.start === end.date && !end.midnight));
+  }
+  const start = Date.parse(event.start);
+  const end = Date.parse(event.end);
+  const lower = Date.parse(range.start);
+  const upper = Date.parse(range.end);
+  return Number.isFinite(start) && Number.isFinite(end) && start < upper && (end > lower || (end === start && start >= lower));
 }
 
 // Parses one CalDAV object into events. A single malformed object must never fail a whole window,
@@ -327,8 +350,22 @@ export async function getEvent(
   baseFetch: typeof fetch = fetch,
   recurrenceId?: string,
 ): Promise<CalendarEvent> {
-  const { calendar, object } = await loadEventObject(credentials, { calendarId, eventId }, baseFetch);
-  return selectedEvent(eventFromObject(object, calendarId, credentials.username, calendarTimeZone(calendar, credentials.defaultTimeZone)), recurrenceId);
+  const { calendar, client, object } = await loadEventObject(credentials, { calendarId, eventId }, baseFetch);
+  const events = eventFromObject(object, calendarId, credentials.username, calendarTimeZone(calendar, credentials.defaultTimeZone));
+  if (!recurrenceId) return primaryEvent(events);
+  const allDay = /^\d{4}-\d{2}-\d{2}$/.test(recurrenceId);
+  const instant = Date.parse(allDay ? `${recurrenceId}T00:00:00Z` : recurrenceId);
+  if (!Number.isFinite(instant)) throw new Error("Invalid recurring occurrence identifier.");
+  const target = allDay ? recurrenceId : new Date(instant).toISOString();
+  // Detached exceptions exist in the stored object. Ordinary RRULE instances do not:
+  // ask iCloud to expand a bounded window, then select this exact object and recurrence id.
+  const detached = events.find((event) => event.recurrenceId === target);
+  if (detached) return detached;
+  const expanded = await fetchEventsForCalendar(client, calendar, calendarId, credentials.username, credentials.defaultTimeZone, {
+    start: new Date(instant - 2 * 86400000).toISOString(),
+    end: new Date(instant + 2 * 86400000).toISOString(),
+  });
+  return selectedEvent(expanded.filter((event) => event.id === eventId), target);
 }
 
 export async function batchGetEvents(
